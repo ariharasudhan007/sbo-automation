@@ -64,17 +64,17 @@ credentials = [
 PROCESS_DELAY = 5  # seconds between profiles
 MAX_RETRIES = 2    # max retry attempts for failed logins
 
-# Database connection details - FIXED: Using environment variables properly
-DB_HOST = os.getenv('DB_HOST', 'srv1837.hstgr.io')
-DB_PORT = int(os.getenv('DB_PORT', '3306'))
-DB_USER = os.getenv('DB_USER', 'u329947844_ems')
-DB_PASSWORD = os.getenv('DB_PASSWORD', 'Hifi11@ems')
-DB_NAME = os.getenv('DB_NAME', 'u329947844_ems')
+# Database connection details - DIRECTLY EMBEDDED
+DB_HOST = 'srv1837.hstgr.io'
+DB_PORT = 3306
+DB_USER = 'u329947844_ems'
+DB_PASSWORD = 'Hifi11@ems'
+DB_NAME = 'u329947844_ems'
 
-# Email configuration
-EMAIL_SENDER = os.getenv('EMAIL_SENDER', 'ariharasudhanonofficial@gmail.com')
-EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD', 'tjhw ghst eyma xwlp')
-EMAIL_RECEIVER = os.getenv('EMAIL_RECEIVER', 'ariharasudhanonofficial@gmail.com')
+# Email configuration - DIRECTLY EMBEDDED
+EMAIL_SENDER = 'ariharasudhanonofficial@gmail.com'
+EMAIL_PASSWORD = 'tjhw ghst eyma xwlp'
+EMAIL_RECEIVER = 'ariharasudhanonofficial@gmail.com'
 
 # Store results for email report
 processing_results = []
