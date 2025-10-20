@@ -11,33 +11,11 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
+import os
 
 # List of usernames and passwords
 credentials = [
-    {"username": "SBOVDBN5591476", "password": "Nithish@123"},
-    {"username": "SBOVDBN55205229", "password": "Ramya@2023"},
-    {"username": "SBOVDBN5575582", "password": "Kathiravan@1682"},
-    {"username": "SBOVDBN5593148", "password": "Kavin@123"},
-    {"username": "SBOVDBN55221334", "password": "Ramani@2003"},
-    {"username": "SBOVDBN55278247", "password": "Sarathi@2003"},
-    {"username": "SBOVDBN55285206", "password": "Ramya@2003"},
-    {"username": "SBOVDBN55271922", "password": "Abi@2005"},
-    {"username": "SBOVDBN55272194", "password": "Anushya@2004"},
-    {"username": "SBOVDBN5573944", "password": "Vinoth@3"},
-    {"username": "SBOVDBN5573975", "password": "Sakthi@123"},
-    {"username": "SBOVDBN55285076", "password": "Poorna@123"},
-    {"username": "SBOVDBN55150323", "password": "Nethaji@2003"},
-    {"username": "SBOVDBN55161881", "password": "Ganesh@2003"},
-    {"username": "SBOVDBN55194012", "password": "Ganesh@007"},
-    {"username": "SBOVDBN55272764", "password": "Abi@2003"},
-    {"username": "SBOVDBN55204739", "password": "Thirumalai4627@@"},
-    {"username": "SBOVDBN55280040", "password": "Deepi@2003"},
-    {"username": "SBOVDBN55214521", "password": "Nagaraju@2003"},
-    {"username": "SBOVDBN55284900", "password": "Nag@1234"},
-    {"username": "SBOVDBN55278180", "password": "Sarika@2003"},
-    {"username": "SBOVDBN55278204", "password": "Raja@2003"},
-    {"username": "SBOMA4119", "password": "Rakesh@2025"},
-    {"username": "SBOVDBN5573975", "password": "Sakthi@123"},
+
     {"username": "SBOVDPN5570549", "password": "Jivanya@7200"},
     {"username": "SBOVDPN5578047", "password": "Selvi@123"},
     {"username": "SBOVDPN55243342", "password": "Ari@2003"},
@@ -59,35 +37,61 @@ credentials = [
     {"username": "SBOVDPN55143840", "password": "@Naveen444"},
 ]
 
-# Database connection details
-DB_HOST = 'srv1837.hstgr.io'
-DB_PORT = 3306
-DB_USER = 'u329947844_ems'
-DB_PASSWORD = 'Hifi11@ems'
-DB_NAME = 'u329947844_ems'
+# Database connection details - using environment variables for security
+DB_HOST = os.getenv('DB_HOST', 'srv1837.hstgr.io')
+DB_PORT = int(os.getenv('DB_PORT', '3306'))
+DB_USER = os.getenv('DB_USER', 'u329947844_ems')
+DB_PASSWORD = os.getenv('DB_PASSWORD', 'Hifi11@ems')
+DB_NAME = os.getenv('DB_NAME', 'u329947844_ems')
 
-# Email configuration
-EMAIL_SENDER = "ariharasudhanonofficial@gmail.com"
-EMAIL_PASSWORD = "tjhw ghst eyma xwlp"
-EMAIL_RECEIVER = "ariharasudhanonofficial@gmail.com"
+# Email configuration - using environment variables for security
+EMAIL_SENDER = os.getenv('EMAIL_SENDER', 'ariharasudhanonofficial@gmail.com')
+EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD', 'tjhw ghst eyma xwlp')
+EMAIL_RECEIVER = os.getenv('EMAIL_RECEIVER', 'ariharasudhanonofficial@gmail.com')
 
-# Configure Chrome options for headless mode
-options = webdriver.ChromeOptions()
-options.add_argument('--headless')  # Enable headless mode
-options.add_argument('--disable-gpu')
-options.add_argument('--no-sandbox')
-options.add_argument('--disable-dev-shm-usage')
-options.add_argument('--window-size=1920,1080')
-options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+# Global driver variable
+driver = None
 
-# Additional options for better headless performance
-options.add_argument('--disable-extensions')
-options.add_argument('--disable-images')  # Optional: disable images for faster loading
-options.add_argument('--blink-settings=imagesEnabled=false')  # Optional: disable images
-
-# Path to ChromeDriver
-service = Service(r"D:\Sbo New\chromedriver.exe")
-driver = webdriver.Chrome(service=service, options=options)
+def setup_driver():
+    """Setup Chrome driver for GitHub Actions environment"""
+    global driver
+    
+    chrome_options = webdriver.ChromeOptions()
+    
+    # Essential options for GitHub Actions
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--window-size=1920,1080")
+    
+    # Additional options for better compatibility
+    chrome_options.add_argument("--disable-extensions")
+    chrome_options.add_argument("--disable-images")
+    chrome_options.add_argument("--blink-settings=imagesEnabled=false")
+    chrome_options.add_argument("--disable-web-security")
+    chrome_options.add_argument("--allow-running-insecure-content")
+    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    chrome_options.add_experimental_option('useAutomationExtension', False)
+    
+    # User agent to mimic real browser
+    chrome_options.add_argument("--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+    
+    try:
+        # Use the system ChromeDriver in GitHub Actions
+        service = Service("/usr/bin/chromedriver")
+        driver = webdriver.Chrome(service=service, options=chrome_options)
+        
+        # Additional settings to avoid detection
+        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+        
+        print("Chrome driver setup successfully for GitHub Actions")
+        return True
+        
+    except Exception as e:
+        print(f"Failed to setup Chrome driver: {e}")
+        return False
 
 # Store results for email report
 processing_results = []
@@ -102,13 +106,15 @@ def create_database_connection():
             database=DB_NAME,
             charset='utf8mb4',
             cursorclass=pymysql.cursors.DictCursor,
-            autocommit=True
+            autocommit=True,
+            connect_timeout=30
         )
         print("Database connection established.")
         return connection
     except OperationalError as e:
         print(f"Failed to connect to the database: {e}")
-        driver.quit()
+        if driver:
+            driver.quit()
         exit(1)
 
 def initialize_database_tables(connection):
@@ -138,10 +144,12 @@ def login_and_redirect_to_dashboard(username, password):
         print(f"\nProcessing {username}")
         
         driver.get("https://www.sboportal.org.in/login")
-        time.sleep(2)  # Slightly longer wait for headless
+        time.sleep(3)  # Increased wait for headless
         
         # Clear and enter credentials
-        username_field = driver.find_element(By.ID, "profileid")
+        username_field = WebDriverWait(driver, 20).until(
+            EC.presence_of_element_located((By.ID, "profileid"))
+        )
         username_field.clear()
         username_field.send_keys(username)
         
@@ -150,16 +158,16 @@ def login_and_redirect_to_dashboard(username, password):
         password_field.send_keys(password)
         
         driver.find_element(By.ID, "submitbtn").click()
-        time.sleep(3)
+        time.sleep(4)  # Increased wait for login
         
         # Check if login was successful
         if "dashboard" not in driver.current_url.lower():
             print("Redirecting to dashboard...")
             driver.get("https://www.sboportal.org.in/dashboard")
-            time.sleep(2)
+            time.sleep(3)
             
-        # Wait for wallet element to appear
-        WebDriverWait(driver, 20).until(  # Increased timeout for headless
+        # Wait for wallet element to appear with longer timeout
+        WebDriverWait(driver, 25).until(
             EC.presence_of_element_located((By.CLASS_NAME, "wallet"))
         )
         print("Dashboard loaded successfully")
@@ -171,7 +179,7 @@ def login_and_redirect_to_dashboard(username, password):
 
 def get_profile_name():
     try:
-        profile_element = WebDriverWait(driver, 15).until(  # Increased timeout
+        profile_element = WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, ".profile_avatar .content_profile h2"))
         )
         return profile_element.text.strip()
@@ -183,12 +191,12 @@ def fetch_wallet_amounts():
     amounts = {'task_earned': None, 'intro_commission': None}
     
     try:
-        task_element = WebDriverWait(driver, 15).until(  # Increased timeout
+        task_element = WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((By.XPATH, "//h4[contains(., 'Task Earned')]/following-sibling::h3"))
         )
         amounts['task_earned'] = float(task_element.text.strip().replace(',', '').replace('₹', ''))
         
-        intro_element = WebDriverWait(driver, 15).until(  # Increased timeout
+        intro_element = WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((By.XPATH, "//h4[contains(., 'Intro Commission')]/following-sibling::h3"))
         )
         amounts['intro_commission'] = float(intro_element.text.strip().replace(',', '').replace('₹', ''))
@@ -487,7 +495,7 @@ def send_email_report(connection):
             <br>
             <p><em>Automated report generated by SBO Portal system</em></p>
             <p><em>Complete wallet records are logged in the database with daily tracking</em></p>
-            <p><strong>Mode:</strong> Headless Chrome Automation</p>
+            <p><strong>Mode:</strong> GitHub Actions - Headless Chrome Automation</p>
         </body>
         </html>
         """
@@ -519,7 +527,13 @@ def send_email_report(connection):
         return False
 
 def main():
-    print("Starting SBO Portal Automation in HEADLESS mode...")
+    print("Starting SBO Portal Automation on GitHub Actions...")
+    
+    # Setup driver first
+    if not setup_driver():
+        print("Failed to setup Chrome driver. Exiting...")
+        return
+    
     connection = create_database_connection()
     
     try:
@@ -528,6 +542,8 @@ def main():
         
         for credential in credentials:
             process_user(connection, credential['username'], credential['password'])
+            # Add small delay between users
+            time.sleep(2)
         
         print("\nSending email report...")
         send_email_report(connection)
@@ -556,8 +572,9 @@ def main():
         except Exception as e:
             print(f"Error closing database connection: {e}")
         
-        driver.quit()
-        print("Browser closed.")
+        if driver:
+            driver.quit()
+            print("Browser closed.")
 
 if __name__ == "__main__":
     main()
