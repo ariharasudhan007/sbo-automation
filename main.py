@@ -60,6 +60,10 @@ credentials = [
     {"username": "SBOVDPN55143840", "password": "@Naveen444"},
 ]
 
+# Configuration
+PROCESS_DELAY = 5  # seconds between profiles
+MAX_RETRIES = 2    # max retry attempts for failed logins
+
 # Database connection details - using environment variables for security
 DB_HOST = os.getenv('DB_HOST', 'srv1837.hstgr.io')
 DB_PORT = int(os.getenv('DB_PORT', '3306'))
@@ -107,11 +111,11 @@ def setup_driver():
         # Additional settings to avoid detection
         driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         
-        print("Chrome driver setup successfully for GitHub Actions")
+        print("🚀 Chrome driver setup successfully for GitHub Actions")
         return driver
         
     except Exception as e:
-        print(f"Failed to setup Chrome driver: {e}")
+        print(f"❌ Failed to setup Chrome driver: {e}")
         return None
 
 def create_database_connection():
@@ -127,10 +131,10 @@ def create_database_connection():
             autocommit=True,
             connect_timeout=30
         )
-        print("Database connection established.")
+        print("✅ Database connection established.")
         return connection
     except OperationalError as e:
-        print(f"Failed to connect to the database: {e}")
+        print(f"❌ Failed to connect to the database: {e}")
         return None
 
 def initialize_database_tables(connection):
@@ -151,16 +155,16 @@ def initialize_database_tables(connection):
                     UNIQUE KEY unique_user_date (username, record_date)
                 )
             """)
-            print("Wallet records logs table initialized/verified.")
+            print("✅ Table wallet_records_logs verified.")
     except Exception as e:
-        print(f"Error initializing database tables: {e}")
+        print(f"❌ Error initializing database tables: {e}")
 
 def login_and_redirect_to_dashboard(driver, username, password):
     try:
-        print(f"\nProcessing {username}")
+        print(f"🔐 Logging in as {username}")
         
         driver.get("https://www.sboportal.org.in/login")
-        time.sleep(3)  # Increased wait for headless
+        time.sleep(3)
         
         # Clear and enter credentials
         username_field = WebDriverWait(driver, 20).until(
@@ -174,11 +178,11 @@ def login_and_redirect_to_dashboard(driver, username, password):
         password_field.send_keys(password)
         
         driver.find_element(By.ID, "submitbtn").click()
-        time.sleep(4)  # Increased wait for login
+        time.sleep(4)
         
         # Check if login was successful
         if "dashboard" not in driver.current_url.lower():
-            print("Redirecting to dashboard...")
+            print("🔄 Redirecting to dashboard...")
             driver.get("https://www.sboportal.org.in/dashboard")
             time.sleep(3)
             
@@ -186,11 +190,11 @@ def login_and_redirect_to_dashboard(driver, username, password):
         WebDriverWait(driver, 25).until(
             EC.presence_of_element_located((By.CLASS_NAME, "wallet"))
         )
-        print("Dashboard loaded successfully")
+        print("✅ Dashboard loaded successfully")
         return True
         
     except Exception as e:
-        print(f"Login/redirect failed for {username}: {e}")
+        print(f"❌ Login failed for {username}: {e}")
         return False
 
 def get_profile_name(driver):
@@ -200,7 +204,7 @@ def get_profile_name(driver):
         )
         return profile_element.text.strip()
     except Exception as e:
-        print(f"Error getting profile name: {e}")
+        print(f"⚠️ Error getting profile name: {e}")
         return None
 
 def fetch_wallet_amounts(driver):
@@ -218,7 +222,7 @@ def fetch_wallet_amounts(driver):
         amounts['intro_commission'] = float(intro_element.text.strip().replace(',', '').replace('₹', ''))
         
     except Exception as e:
-        print(f"Error fetching wallet amounts: {e}")
+        print(f"⚠️ Error fetching wallet amounts: {e}")
     
     return amounts
 
@@ -237,7 +241,7 @@ def update_database(connection, username, profile_name, task_amount, intro_amoun
                         fetched_at = CURRENT_TIMESTAMP
                     WHERE username = %s
                 """, (task_amount, username))
-                print(f"Updated Task Wallet for {username}: ₹{task_amount}")
+                print(f"💰 Updated Task Wallet: ₹{task_amount}")
             
             # Update intro_commission_records table
             if intro_amount is not None:
@@ -248,7 +252,7 @@ def update_database(connection, username, profile_name, task_amount, intro_amoun
                         fetched_at = CURRENT_TIMESTAMP
                     WHERE username = %s
                 """, (intro_amount, profile_name, username))
-                print(f"Updated Intro Commission for {username}: ₹{intro_amount}")
+                print(f"💸 Updated Intro Commission: ₹{intro_amount}")
             
             # Update or insert into wallet_records_logs table
             cursor.execute("""
@@ -262,11 +266,11 @@ def update_database(connection, username, profile_name, task_amount, intro_amoun
                 fetched_at = VALUES(fetched_at)
             """, (username, profile_name, task_amount, intro_amount, current_date, current_datetime))
             
-            print(f"Updated wallet logs for {username} on date {current_date}")
+            print(f"✅ DB updated for {username}")
                 
         return True
     except Exception as e:
-        print(f"Database update error for {username}: {e}")
+        print(f"❌ Database update error for {username}: {e}")
         return False
 
 def get_wallet_logs_summary(connection, username=None):
@@ -301,17 +305,17 @@ def get_wallet_logs_summary(connection, username=None):
             
             return cursor.fetchall()
     except Exception as e:
-        print(f"Error getting wallet logs summary: {e}")
+        print(f"⚠️ Error getting wallet logs summary: {e}")
         return []
 
 def logout(driver):
     try:
         driver.get("https://www.sboportal.org.in/logout")
         time.sleep(2)
-        print("Logged out successfully")
+        print("🔓 Logged out successfully")
         return True
     except Exception as e:
-        print(f"Logout failed: {e}")
+        print(f"⚠️ Logout failed: {e}")
         return False
 
 def process_user(driver, connection, username, password):
@@ -324,20 +328,28 @@ def process_user(driver, connection, username, password):
         'error': None
     }
     
-    if not login_and_redirect_to_dashboard(driver, username, password):
-        result['error'] = 'Login failed'
-        processing_results.append(result)
-        return
-        
+    # Retry logic
+    for attempt in range(MAX_RETRIES):
+        if login_and_redirect_to_dashboard(driver, username, password):
+            break
+        elif attempt < MAX_RETRIES - 1:
+            print(f"🔄 Retry {attempt + 1}/{MAX_RETRIES} for {username}")
+            time.sleep(3)
+        else:
+            result['error'] = 'Login failed after retries'
+            processing_results.append(result)
+            return
+    
     try:
         profile_name = get_profile_name(driver)
         result['profile_name'] = profile_name
-        print(f"Profile Name: {profile_name}")
+        if profile_name:
+            print(f"👤 Profile: {profile_name}")
         
         amounts = fetch_wallet_amounts(driver)
         result['task_earned'] = amounts['task_earned']
         result['intro_commission'] = amounts['intro_commission']
-        print(f"Fetched Amounts - Task: {amounts['task_earned']}, Intro: {amounts['intro_commission']}")
+        print(f"📊 Task: ₹{amounts['task_earned']}, Intro: ₹{amounts['intro_commission']}")
         
         db_success = update_database(connection, username, profile_name, 
                                    amounts['task_earned'], amounts['intro_commission'])
@@ -349,7 +361,7 @@ def process_user(driver, connection, username, password):
         
     except Exception as e:
         result['error'] = str(e)
-        print(f"Error during processing for {username}: {e}")
+        print(f"❌ Processing error for {username}: {e}")
     finally:
         logout_success = logout(driver)
         if not logout_success:
@@ -361,6 +373,7 @@ def calculate_totals():
     total_task = 0
     total_intro = 0
     successful_count = 0
+    failed_count = 0
     
     for result in processing_results:
         if result['status'] == 'Success':
@@ -369,6 +382,8 @@ def calculate_totals():
             if result['intro_commission'] is not None:
                 total_intro += result['intro_commission']
             successful_count += 1
+        else:
+            failed_count += 1
     
     total_combined = total_task + total_intro
     deduction_35_percent = total_combined * 0.35
@@ -380,7 +395,9 @@ def calculate_totals():
         'total_combined': total_combined,
         'deduction_35_percent': deduction_35_percent,
         'amount_after_deduction': amount_after_deduction,
-        'successful_count': successful_count
+        'successful_count': successful_count,
+        'failed_count': failed_count,
+        'total_profiles': len(processing_results)
     }
 
 def send_email_report(connection):
@@ -388,7 +405,7 @@ def send_email_report(connection):
         totals = calculate_totals()
         logs_summary = get_wallet_logs_summary(connection)
         
-        subject = f"SBO Portal Report - {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+        subject = f"🤖 SBO Portal Report - {datetime.now().strftime('%d/%m/%Y %H:%M')}"
         
         html_content = f"""
         <html>
@@ -402,19 +419,24 @@ def send_email_report(connection):
                 .amount {{ text-align: right; }}
                 .success {{ color: green; }}
                 .failed {{ color: red; }}
+                .warning {{ color: orange; }}
                 h2 {{ color: #333; border-bottom: 2px solid #333; padding-bottom: 10px; }}
                 h3 {{ color: #555; margin-top: 20px; }}
+                .summary-box {{ background: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0; }}
             </style>
         </head>
         <body>
-            <h2>SBO Portal Automation Report</h2>
+            <h2>🤖 SBO Portal Automation Report</h2>
             
-            <p><strong>Report Date:</strong> {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}</p>
-            <p><strong>Total Profiles:</strong> {len(processing_results)}</p>
-            <p><strong class="success">Successful:</strong> {totals['successful_count']}</p>
-            <p><strong class="failed">Failed:</strong> {len(processing_results) - totals['successful_count']}</p>
+            <div class="summary-box">
+                <p><strong>📅 Report Date:</strong> {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}</p>
+                <p><strong>👥 Total Profiles:</strong> {totals['total_profiles']}</p>
+                <p><strong class="success">✅ Successful:</strong> {totals['successful_count']}</p>
+                <p><strong class="failed">❌ Failed:</strong> {totals['failed_count']}</p>
+                <p><strong>⏱️ Platform:</strong> GitHub Actions (Headless Chrome)</p>
+            </div>
 
-            <h3>Financial Summary</h3>
+            <h3>💰 Financial Summary</h3>
             <table>
                 <tr>
                     <th>Description</th>
@@ -434,7 +456,7 @@ def send_email_report(connection):
                 </tr>
             </table>
 
-            <h3>Deduction Calculation (35%)</h3>
+            <h3>📉 Deduction Calculation (35%)</h3>
             <table>
                 <tr>
                     <th>Description</th>
@@ -454,7 +476,7 @@ def send_email_report(connection):
                 </tr>
             </table>
 
-            <h3>Historical Records Summary (Last 10 Days)</h3>
+            <h3>📈 Historical Records Summary (Last 10 Days)</h3>
             <table>
                 <tr>
                     <th>Date</th>
@@ -479,7 +501,7 @@ def send_email_report(connection):
         html_content += """
             </table>
 
-            <h3>Individual Profile Results</h3>
+            <h3>👤 Individual Profile Results</h3>
             <table>
                 <tr>
                     <th>Username</th>
@@ -487,6 +509,7 @@ def send_email_report(connection):
                     <th>Profile Name</th>
                     <th>Task Earned (₹)</th>
                     <th>Intro Commission (₹)</th>
+                    <th>Error</th>
                 </tr>
         """
         
@@ -494,6 +517,7 @@ def send_email_report(connection):
             task_display = f"₹{result['task_earned']:,.2f}" if result['task_earned'] is not None else 'N/A'
             intro_display = f"₹{result['intro_commission']:,.2f}" if result['intro_commission'] is not None else 'N/A'
             status_class = 'success' if result['status'] == 'Success' else 'failed'
+            error_display = result['error'] or '-'
             
             html_content += f"""
                 <tr>
@@ -502,6 +526,7 @@ def send_email_report(connection):
                     <td>{result['profile_name'] or 'N/A'}</td>
                     <td class="amount">{task_display}</td>
                     <td class="amount">{intro_display}</td>
+                    <td class="warning">{error_display}</td>
                 </tr>
             """
         
@@ -509,12 +534,18 @@ def send_email_report(connection):
             </table>
             
             <br>
-            <p><em>Automated report generated by SBO Portal system</em></p>
-            <p><em>Complete wallet records are logged in the database with daily tracking</em></p>
-            <p><strong>Mode:</strong> GitHub Actions - Headless Chrome Automation</p>
+            <div class="summary-box">
+                <p><em>🤖 Automated report generated by SBO Portal system</em></p>
+                <p><em>💾 Complete wallet records are logged in the database with daily tracking</em></p>
+                <p><strong>🌐 Mode:</strong> GitHub Actions - Headless Chrome Automation</p>
+                <p><strong>⚡ Status:</strong> {processed_count}/{total_count} profiles processed successfully</p>
+            </div>
         </body>
         </html>
-        """
+        """.format(
+            processed_count=totals['successful_count'],
+            total_count=totals['total_profiles']
+        )
         
         msg = MIMEMultipart()
         msg['From'] = EMAIL_SENDER
@@ -529,31 +560,33 @@ def send_email_report(connection):
         server.send_message(msg)
         server.quit()
         
-        print(f"\nEmail report sent successfully to {EMAIL_RECEIVER}")
-        print(f"Total Task Amount: ₹{totals['total_task']:,.2f}")
-        print(f"Total Intro Commission: ₹{totals['total_intro']:,.2f}")
-        print(f"Combined Total: ₹{totals['total_combined']:,.2f}")
-        print(f"35% Deduction: ₹{totals['deduction_35_percent']:,.2f}")
-        print(f"Final Amount After Deduction: ₹{totals['amount_after_deduction']:,.2f}")
+        print(f"📧 Email sent successfully to {EMAIL_RECEIVER}")
+        print(f"📊 Summary: {totals['successful_count']}/{totals['total_profiles']} successful")
+        print(f"💰 Total Task Amount: ₹{totals['total_task']:,.2f}")
+        print(f"💸 Total Intro Commission: ₹{totals['total_intro']:,.2f}")
+        print(f"📈 Combined Total: ₹{totals['total_combined']:,.2f}")
+        print(f"📉 35% Deduction: ₹{totals['deduction_35_percent']:,.2f}")
+        print(f"🎯 Final Amount: ₹{totals['amount_after_deduction']:,.2f}")
         
         return True
         
     except Exception as e:
-        print(f"Failed to send email report: {e}")
+        print(f"❌ Failed to send email report: {e}")
         return False
 
 def main():
-    print("Starting SBO Portal Automation on GitHub Actions...")
+    print("🚀 Starting SBO Automation on GitHub Actions (Headless Chrome)...")
+    start_time = time.time()
     
     # Setup driver first
     driver = setup_driver()
     if not driver:
-        print("Failed to setup Chrome driver. Exiting...")
+        print("❌ Failed to setup Chrome driver. Exiting...")
         return
     
     connection = create_database_connection()
     if not connection:
-        print("Failed to connect to database. Exiting...")
+        print("❌ Failed to connect to database. Exiting...")
         driver.quit()
         return
     
@@ -561,16 +594,33 @@ def main():
         # Initialize database tables
         initialize_database_tables(connection)
         
-        for credential in credentials:
-            process_user(driver, connection, credential['username'], credential['password'])
-            # Add small delay between users
-            time.sleep(2)
+        total_profiles = len(credentials)
+        print(f"📋 Processing {total_profiles} profiles with {PROCESS_DELAY}s delays...")
         
-        print("\nSending email report...")
+        for i, credential in enumerate(credentials):
+            print(f"\n{'='*50}")
+            print(f"🔍 Processing {i+1}/{total_profiles}: {credential['username']}")
+            print(f"{'='*50}")
+            
+            process_user(driver, connection, credential['username'], credential['password'])
+            
+            # Add delay between users (except after the last one)
+            if i < total_profiles - 1:
+                print(f"⏳ Waiting {PROCESS_DELAY} seconds before next user...")
+                time.sleep(PROCESS_DELAY)
+        
+        print(f"\n{'='*50}")
+        print("📊 Generating final report...")
+        print(f"{'='*50}")
+        
         send_email_report(connection)
         
+        end_time = time.time()
+        total_duration = end_time - start_time
+        print(f"\n✅ Completed in {total_duration:.2f} seconds!")
+        
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        print(f"\n❌ An unexpected error occurred: {e}")
         
         try:
             error_result = {
@@ -584,18 +634,18 @@ def main():
             processing_results.append(error_result)
             send_email_report(connection)
         except:
-            print("Failed to send error report")
+            print("❌ Failed to send error report")
             
     finally:
         try:
             connection.close()
-            print("\nDatabase connection closed.")
+            print("🔒 Database connection closed.")
         except Exception as e:
-            print(f"Error closing database connection: {e}")
+            print(f"⚠️ Error closing database connection: {e}")
         
         if driver:
             driver.quit()
-            print("Browser closed.")
+            print("🔒 Browser closed.")
 
 if __name__ == "__main__":
     main()
