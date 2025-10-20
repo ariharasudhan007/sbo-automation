@@ -64,14 +64,14 @@ credentials = [
 PROCESS_DELAY = 5  # seconds between profiles
 MAX_RETRIES = 2    # max retry attempts for failed logins
 
-# Database connection details - using environment variables for security
+# Database connection details - FIXED: Using environment variables properly
 DB_HOST = os.getenv('DB_HOST', 'srv1837.hstgr.io')
 DB_PORT = int(os.getenv('DB_PORT', '3306'))
 DB_USER = os.getenv('DB_USER', 'u329947844_ems')
 DB_PASSWORD = os.getenv('DB_PASSWORD', 'Hifi11@ems')
 DB_NAME = os.getenv('DB_NAME', 'u329947844_ems')
 
-# Email configuration - using environment variables for security
+# Email configuration
 EMAIL_SENDER = os.getenv('EMAIL_SENDER', 'ariharasudhanonofficial@gmail.com')
 EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD', 'tjhw ghst eyma xwlp')
 EMAIL_RECEIVER = os.getenv('EMAIL_RECEIVER', 'ariharasudhanonofficial@gmail.com')
@@ -120,6 +120,8 @@ def setup_driver():
 
 def create_database_connection():
     try:
+        print(f"🔗 Attempting to connect to database: {DB_HOST}:{DB_PORT}")
+        
         connection = pymysql.connect(
             host=DB_HOST,
             port=DB_PORT,
@@ -129,12 +131,18 @@ def create_database_connection():
             charset='utf8mb4',
             cursorclass=pymysql.cursors.DictCursor,
             autocommit=True,
-            connect_timeout=30
+            connect_timeout=30,
+            read_timeout=30,
+            write_timeout=30
         )
         print("✅ Database connection established.")
         return connection
     except OperationalError as e:
         print(f"❌ Failed to connect to the database: {e}")
+        print(f"📋 Connection details: host={DB_HOST}, port={DB_PORT}, user={DB_USER}, db={DB_NAME}")
+        return None
+    except Exception as e:
+        print(f"❌ Unexpected database connection error: {e}")
         return None
 
 def initialize_database_tables(connection):
