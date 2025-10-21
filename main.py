@@ -15,7 +15,9 @@ import os
 
 # List of usernames and passwords
 credentials = [
-    {"username": "SBOVDBN5591476", "password": "Nithish@123"},
+    {"username": "SBOVDPN5566931", "password": "Jivanya@6128"},
+     {"username": "SBOVDPN5578253", "password": "Jivanya@2022"},
+     {"username": "SBOVDBN5591476", "password": "Nithish@123"},
     {"username": "SBOVDBN55205229", "password": "Ramya@2023"},
     {"username": "SBOVDBN5575582", "password": "Kathiravan@1682"},
     {"username": "SBOVDBN5593148", "password": "Kavin@123"},
